@@ -3,6 +3,8 @@
 当前已完成：
 1) 主窗口布局
 2) 控制面板 + 按钮交互骨架
+3) 散点图/排序图嵌入
+4) 求解结果展示
 
 说明：绘图、排序、求解、导出的完整业务接入在后续子任务完成。
 """
@@ -16,6 +18,7 @@ from typing import List, Optional
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from src.data_parser import DKPInstance, parse_file
+from src.dp_solver import SolveResult, solve
 from src.sorter import sort_groups_by_ratio
 from src.visualizer import create_scatter_figure, create_sorted_scatter_figure
 
@@ -37,6 +40,7 @@ class DKPApp(tk.Tk):
         self.instances: List[DKPInstance] = []
         self.selected_instance: Optional[DKPInstance] = None
         self.last_sorted_order: List[int] = []
+        self.last_solve_result: Optional[SolveResult] = None
 
         self.notebook: Optional[ttk.Notebook] = None
         self.tab_chart: Optional[ttk.Frame] = None
@@ -81,7 +85,7 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             header,
-            text="当前阶段：主窗口布局 + 控制面板按钮 + 图表嵌入已接入。",
+            text="当前阶段：主窗口布局 + 控制面板按钮 + 图表嵌入 + 求解结果展示已接入。",
             style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
@@ -177,7 +181,7 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             left_panel,
-            text="说明：求解结果展示与导出交互将在后续子任务接入。",
+            text="说明：导出交互将在后续子任务接入。",
             style="Hint.TLabel",
         ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
 
@@ -304,9 +308,10 @@ class DKPApp(tk.Tk):
             self.sorted_canvas = None
 
         self.last_sorted_order = []
+        self.last_solve_result = None
         self._set_result_text(
             "当前可通过左侧按钮渲染散点图与排序图。\n"
-            "后续子任务将接入 DP 求解详情与导出结果。"
+            "可点击“运行 DP 求解”查看最优值与选中物品明细。"
         )
 
     def _set_result_text(self, text: str) -> None:
@@ -412,7 +417,44 @@ class DKPApp(tk.Tk):
     def _on_solve(self) -> None:
         if not self._require_instance():
             return
-        self._set_status(f"待实现：对 {self.selected_instance.name} 运行 DP 求解")
+
+        self.last_solve_result = solve(self.selected_instance)
+        report = self._format_solve_report(self.selected_instance, self.last_solve_result)
+        self._set_result_text(report)
+
+        self._set_status(
+            f"求解完成：{self.selected_instance.name} 最优值 = {self.last_solve_result.optimal_value}"
+        )
+
+        if self.notebook and self.tab_result:
+            self.notebook.select(self.tab_result)
+
+    def _format_solve_report(self, instance: DKPInstance, result: SolveResult) -> str:
+        lines = [
+            f"实例：{result.instance_name}",
+            f"组数：{instance.num_groups}",
+            f"容量：{instance.capacity}",
+            f"最优总价值：{result.optimal_value}",
+            f"求解耗时：{result.solve_time_ms:.4f} ms",
+            "",
+            f"选中物品数：{len(result.selected_items)}",
+            "组编号  组内编号  价值  重量",
+        ]
+
+        total_weight = 0
+        for group_idx, item_in_group, profit, weight in result.selected_items:
+            lines.append(
+                f"{group_idx + 1:>4}    {item_in_group + 1:>4}    {profit:>4}  {weight:>4}"
+            )
+            total_weight += weight
+
+        lines.extend([
+            "",
+            f"总重量：{total_weight}",
+            "说明：组编号与组内编号均从 1 开始计数。",
+        ])
+
+        return "\n".join(lines)
 
     def _on_export(self) -> None:
         if not self._require_instance():
