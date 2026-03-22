@@ -21,6 +21,7 @@ def sort_groups_by_ratio(instance: DKPInstance) -> List[int]:
     Returns:
         排序后各组在原 instance.groups 中的索引列表（降序排列）。
     """
+
     def ratio(idx: int) -> float:
         grp = instance.groups[idx]
         w3 = grp.weights[2]

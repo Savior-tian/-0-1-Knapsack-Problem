@@ -14,7 +14,7 @@ from typing import List
 
 from src.data_parser import DKPInstance
 from src.dp_solver import SolveResult
-from src.sorter import sort_groups_by_ratio, get_sorted_ratios
+from src.sorter import get_sorted_ratios
 
 
 def export_txt(
@@ -32,7 +32,7 @@ def export_txt(
     """
     lines = [
         "=" * 60,
-        f"  D{{0-1}} 背包问题求解结果",
+        "  D{0-1} 背包问题求解结果",
         "=" * 60,
         f"实例名称  : {result.instance_name}",
         f"组数 (N)  : {instance.num_groups}",
@@ -143,7 +143,9 @@ def export_excel(
     # 合计行
     last_row = len(result.selected_items) + 2
     ws_items.cell(row=last_row, column=1, value="合计").font = Font(bold=True)
-    ws_items.cell(row=last_row, column=3, value=result.optimal_value).font = Font(bold=True)
+    ws_items.cell(row=last_row, column=3, value=result.optimal_value).font = Font(
+        bold=True
+    )
     ws_items.cell(row=last_row, column=4, value=total_weight).font = Font(bold=True)
 
     for col in ["A", "B", "C", "D"]:

@@ -62,8 +62,12 @@ class DKPApp(tk.Tk):
         style = ttk.Style(self)
         style.configure("Title.TLabel", font=("Microsoft YaHei UI", 16, "bold"))
         style.configure("Subtitle.TLabel", font=("Microsoft YaHei UI", 10))
-        style.configure("Section.TLabelframe.Label", font=("Microsoft YaHei UI", 10, "bold"))
-        style.configure("Hint.TLabel", foreground="#666666", font=("Microsoft YaHei UI", 9))
+        style.configure(
+            "Section.TLabelframe.Label", font=("Microsoft YaHei UI", 10, "bold")
+        )
+        style.configure(
+            "Hint.TLabel", foreground="#666666", font=("Microsoft YaHei UI", 9)
+        )
 
     def _build_layout(self) -> None:
         # 根网格：标题 / 主区 / 状态栏
@@ -118,7 +122,9 @@ class DKPApp(tk.Tk):
             left_panel.rowconfigure(i, weight=0)
         left_panel.columnconfigure(0, weight=1)
 
-        ttk.Label(left_panel, text="数据文件", style="Hint.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(left_panel, text="数据文件", style="Hint.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
         ttk.Entry(left_panel, textvariable=self.file_var, state="readonly").grid(
             row=1,
             column=0,
@@ -131,7 +137,9 @@ class DKPApp(tk.Tk):
             sticky="ew",
         )
 
-        ttk.Label(left_panel, text="实例选择", style="Hint.TLabel").grid(row=3, column=0, sticky="w", pady=(12, 0))
+        ttk.Label(left_panel, text="实例选择", style="Hint.TLabel").grid(
+            row=3, column=0, sticky="w", pady=(12, 0)
+        )
         self.instance_combo = ttk.Combobox(
             left_panel,
             textvariable=self.instance_var,
@@ -147,7 +155,9 @@ class DKPApp(tk.Tk):
             sticky="ew",
         )
 
-        ttk.Separator(left_panel, orient="horizontal").grid(row=6, column=0, sticky="ew", pady=10)
+        ttk.Separator(left_panel, orient="horizontal").grid(
+            row=6, column=0, sticky="ew", pady=10
+        )
 
         self.btn_show_scatter = ttk.Button(
             left_panel,
@@ -217,7 +227,9 @@ class DKPApp(tk.Tk):
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(1, weight=1)
 
-        ttk.Label(tab, text=title, style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(tab, text=title, style="Subtitle.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
 
         host = ttk.Frame(tab)
         host.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
@@ -239,7 +251,9 @@ class DKPApp(tk.Tk):
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(1, weight=1)
 
-        ttk.Label(tab, text="文本结果区域", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(tab, text="文本结果区域", style="Subtitle.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
 
         self.result_text = tk.Text(tab, height=10, wrap="word")
         self.result_text.insert(
@@ -375,7 +389,9 @@ class DKPApp(tk.Tk):
             return
 
         self.last_sorted_order = sort_groups_by_ratio(self.selected_instance)
-        fig = create_sorted_scatter_figure(self.selected_instance, self.last_sorted_order)
+        fig = create_sorted_scatter_figure(
+            self.selected_instance, self.last_sorted_order
+        )
         self._render_figure(fig, target="sorted")
 
         top_k = min(5, len(self.last_sorted_order))
@@ -421,7 +437,9 @@ class DKPApp(tk.Tk):
             return
 
         self.last_solve_result = solve(self.selected_instance)
-        report = self._format_solve_report(self.selected_instance, self.last_solve_result)
+        report = self._format_solve_report(
+            self.selected_instance, self.last_solve_result
+        )
         self._set_result_text(report)
 
         self._set_status(
@@ -450,11 +468,13 @@ class DKPApp(tk.Tk):
             )
             total_weight += weight
 
-        lines.extend([
-            "",
-            f"总重量：{total_weight}",
-            "说明：组编号与组内编号均从 1 开始计数。",
-        ])
+        lines.extend(
+            [
+                "",
+                f"总重量：{total_weight}",
+                "说明：组编号与组内编号均从 1 开始计数。",
+            ]
+        )
 
         return "\n".join(lines)
 

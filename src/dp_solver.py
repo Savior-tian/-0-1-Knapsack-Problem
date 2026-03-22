@@ -21,8 +21,9 @@ from src.data_parser import DKPInstance
 @dataclass
 class SolveResult:
     """动态规划求解结果。"""
+
     instance_name: str
-    optimal_value: int       # 最优目标函数值
+    optimal_value: int  # 最优目标函数值
     selected_groups: List[int] = field(default_factory=list)
     # selected_groups[i] = 0/1/2/3 表示第 i 组不选/选第1/2/3件
     selected_items: List[Tuple[int, int, int, int]] = field(default_factory=list)
@@ -52,8 +53,8 @@ def solve(instance: DKPInstance) -> SolveResult:
     start = time.perf_counter()
 
     for i, grp in enumerate(groups):
-        p = grp.profits   # [p1, p2, p3]
-        w = grp.weights   # [w1, w2, w3]
+        p = grp.profits  # [p1, p2, p3]
+        w = grp.weights  # [w1, w2, w3]
 
         # 每组独立处理，使用临时数组防止同组内互相影响
         new_dp = dp[:]
@@ -90,12 +91,14 @@ def solve(instance: DKPInstance) -> SolveResult:
         selected_groups[i] = k
         if k > 0:
             item_idx = k - 1  # 0-based
-            selected_items.append((
-                i,
-                item_idx,
-                groups[i].profits[item_idx],
-                groups[i].weights[item_idx],
-            ))
+            selected_items.append(
+                (
+                    i,
+                    item_idx,
+                    groups[i].profits[item_idx],
+                    groups[i].weights[item_idx],
+                )
+            )
             remain -= groups[i].weights[item_idx]
         # k == 0 表示该组不选，remain 不变
 

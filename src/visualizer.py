@@ -9,6 +9,7 @@
 """
 
 import matplotlib
+
 matplotlib.use("Agg")  # 非交互后端，嵌入 tkinter 时切换为 TkAgg
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
@@ -67,14 +68,8 @@ def create_scatter_figure(instance: DKPInstance, figsize=(8, 5)) -> Figure:
     fig, ax = plt.subplots(figsize=figsize)
 
     for item_in_group in range(3):  # 0, 1, 2 对应第1/2/3件
-        xs = [
-            grp.weights[item_in_group]
-            for grp in instance.groups
-        ]
-        ys = [
-            grp.profits[item_in_group]
-            for grp in instance.groups
-        ]
+        xs = [grp.weights[item_in_group] for grp in instance.groups]
+        ys = [grp.profits[item_in_group] for grp in instance.groups]
         ax.scatter(
             xs,
             ys,
@@ -85,7 +80,9 @@ def create_scatter_figure(instance: DKPInstance, figsize=(8, 5)) -> Figure:
             label=_LABELS[item_in_group],
         )
 
-    ax.set_title(f"{instance.name} — 物品散点图\n(容量={instance.capacity}, 组数={instance.num_groups})")
+    ax.set_title(
+        f"{instance.name} — 物品散点图\n(容量={instance.capacity}, 组数={instance.num_groups})"
+    )
     ax.set_xlabel("重量 (Weight)")
     ax.set_ylabel("价值 (Value / Profit)")
     ax.legend(loc="upper left", fontsize=8)

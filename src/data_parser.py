@@ -15,6 +15,7 @@ from typing import List
 @dataclass
 class DKPGroup:
     """D{0-1}KP 中的一组（3 件物品）。"""
+
     profits: List[int] = field(default_factory=list)  # 长度为 3
     weights: List[int] = field(default_factory=list)  # 长度为 3
 
@@ -22,11 +23,12 @@ class DKPGroup:
 @dataclass
 class DKPInstance:
     """单个 D{0-1}KP 实例。"""
+
     name: str
-    num_groups: int      # N（组数）
-    capacity: int        # 背包容量
-    profits: List[int]   # 3*N 个利润值
-    weights: List[int]   # 3*N 个重量值
+    num_groups: int  # N（组数）
+    capacity: int  # 背包容量
+    profits: List[int]  # 3*N 个利润值
+    weights: List[int]  # 3*N 个重量值
     groups: List[DKPGroup] = field(default_factory=list)
 
     def __post_init__(self):
@@ -34,8 +36,8 @@ class DKPInstance:
         self.groups = []
         for i in range(self.num_groups):
             g = DKPGroup(
-                profits=self.profits[i * 3: i * 3 + 3],
-                weights=self.weights[i * 3: i * 3 + 3],
+                profits=self.profits[i * 3 : i * 3 + 3],
+                weights=self.weights[i * 3 : i * 3 + 3],
             )
             self.groups.append(g)
 
