@@ -13,7 +13,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import List, Optional
 
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 from src.data_parser import DKPInstance, parse_file
+from src.sorter import sort_groups_by_ratio
+from src.visualizer import create_scatter_figure, create_sorted_scatter_figure
 
 
 class DKPApp(tk.Tk):
@@ -32,6 +36,18 @@ class DKPApp(tk.Tk):
         self.current_file: str = ""
         self.instances: List[DKPInstance] = []
         self.selected_instance: Optional[DKPInstance] = None
+        self.last_sorted_order: List[int] = []
+
+        self.notebook: Optional[ttk.Notebook] = None
+        self.tab_chart: Optional[ttk.Frame] = None
+        self.tab_sorted: Optional[ttk.Frame] = None
+        self.tab_result: Optional[ttk.Frame] = None
+        self.chart_host: Optional[ttk.Frame] = None
+        self.sorted_host: Optional[ttk.Frame] = None
+        self.result_text: Optional[tk.Text] = None
+
+        self.chart_canvas: Optional[FigureCanvasTkAgg] = None
+        self.sorted_canvas: Optional[FigureCanvasTkAgg] = None
 
         self._build_style()
         self._build_layout()
@@ -65,7 +81,7 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             header,
-            text="当前阶段：主窗口布局 + 控制面板按钮已接入。",
+            text="当前阶段：主窗口布局 + 控制面板按钮 + 图表嵌入已接入。",
             style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
@@ -161,14 +177,14 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             left_panel,
-            text="说明：完整绘图/求解/导出将在后续子任务接入。",
+            text="说明：求解结果展示与导出交互将在后续子任务接入。",
             style="Hint.TLabel",
         ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
 
     def _build_right_panel(self, parent: ttk.Frame) -> None:
         right_panel = ttk.LabelFrame(
             parent,
-            text="可视化与结果展示区（待接入）",
+            text="可视化与结果展示区",
             style="Section.TLabelframe",
             padding=8,
         )
@@ -176,35 +192,57 @@ class DKPApp(tk.Tk):
         right_panel.columnconfigure(0, weight=1)
         right_panel.rowconfigure(0, weight=1)
 
-        notebook = ttk.Notebook(right_panel)
-        notebook.grid(row=0, column=0, sticky="nsew")
+        self.notebook = ttk.Notebook(right_panel)
+        self.notebook.grid(row=0, column=0, sticky="nsew")
 
-        tab_chart = ttk.Frame(notebook, padding=8)
-        tab_sorted = ttk.Frame(notebook, padding=8)
-        tab_result = ttk.Frame(notebook, padding=8)
+        self.tab_chart = ttk.Frame(self.notebook, padding=8)
+        self.tab_sorted = ttk.Frame(self.notebook, padding=8)
+        self.tab_result = ttk.Frame(self.notebook, padding=8)
 
-        notebook.add(tab_chart, text="散点图")
-        notebook.add(tab_sorted, text="排序图")
-        notebook.add(tab_result, text="求解结果")
+        self.notebook.add(self.tab_chart, text="散点图")
+        self.notebook.add(self.tab_sorted, text="排序图")
+        self.notebook.add(self.tab_result, text="求解结果")
 
-        self._build_placeholder_view(tab_chart, "散点图嵌入区域")
-        self._build_placeholder_view(tab_sorted, "排序图嵌入区域")
-        self._build_placeholder_view(tab_result, "文本结果区域")
+        self.chart_host = self._build_chart_tab(self.tab_chart, "散点图嵌入区域")
+        self.sorted_host = self._build_chart_tab(self.tab_sorted, "排序图嵌入区域")
+        self._build_result_tab(self.tab_result)
 
-    def _build_placeholder_view(self, tab: ttk.Frame, title: str) -> None:
+    def _build_chart_tab(self, tab: ttk.Frame, title: str) -> ttk.Frame:
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(1, weight=1)
 
         ttk.Label(tab, text=title, style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
 
-        placeholder = tk.Text(tab, height=10, wrap="word")
-        placeholder.insert(
-            "1.0",
-            "当前为主窗口布局阶段，\n"
-            "后续子任务将把 matplotlib 图像和求解结果内容嵌入到这里。",
+        host = ttk.Frame(tab)
+        host.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        host.columnconfigure(0, weight=1)
+        host.rowconfigure(0, weight=1)
+
+        placeholder = ttk.Label(
+            host,
+            text="等待渲染图表...",
+            style="Hint.TLabel",
+            anchor="center",
+            justify="center",
         )
-        placeholder.configure(state="disabled")
-        placeholder.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        placeholder.grid(row=0, column=0, sticky="nsew")
+
+        return host
+
+    def _build_result_tab(self, tab: ttk.Frame) -> None:
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(1, weight=1)
+
+        ttk.Label(tab, text="文本结果区域", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+
+        self.result_text = tk.Text(tab, height=10, wrap="word")
+        self.result_text.insert(
+            "1.0",
+            "当前可通过左侧按钮渲染散点图与排序图。\n"
+            "后续子任务将接入 DP 求解详情与导出结果。",
+        )
+        self.result_text.configure(state="disabled")
+        self.result_text.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
 
     def _build_status_bar(self) -> None:
         status = ttk.Frame(self, padding=(16, 6))
@@ -255,6 +293,29 @@ class DKPApp(tk.Tk):
 
         self._set_status(f"已加载 {len(self.instances)} 个实例")
         self._toggle_action_buttons(enabled=True)
+        self._clear_visualizations()
+
+    def _clear_visualizations(self) -> None:
+        if self.chart_canvas is not None:
+            self.chart_canvas.get_tk_widget().destroy()
+            self.chart_canvas = None
+        if self.sorted_canvas is not None:
+            self.sorted_canvas.get_tk_widget().destroy()
+            self.sorted_canvas = None
+
+        self.last_sorted_order = []
+        self._set_result_text(
+            "当前可通过左侧按钮渲染散点图与排序图。\n"
+            "后续子任务将接入 DP 求解详情与导出结果。"
+        )
+
+    def _set_result_text(self, text: str) -> None:
+        if self.result_text is None:
+            return
+        self.result_text.configure(state="normal")
+        self.result_text.delete("1.0", "end")
+        self.result_text.insert("1.0", text)
+        self.result_text.configure(state="disabled")
 
     def _sync_selected_instance(self) -> None:
         if not self.instances:
@@ -288,12 +349,65 @@ class DKPApp(tk.Tk):
     def _on_show_scatter(self) -> None:
         if not self._require_instance():
             return
-        self._set_status(f"待实现：绘制 {self.selected_instance.name} 的散点图")
+
+        fig = create_scatter_figure(self.selected_instance)
+        self._render_figure(fig, target="chart")
+        self._set_status(f"已绘制 {self.selected_instance.name} 的散点图")
+        self._set_result_text(
+            f"实例：{self.selected_instance.name}\n"
+            f"组数：{self.selected_instance.num_groups}\n"
+            f"容量：{self.selected_instance.capacity}\n"
+            "已渲染散点图（重量-价值）。"
+        )
+
+        if self.notebook and self.tab_chart:
+            self.notebook.select(self.tab_chart)
 
     def _on_sort(self) -> None:
         if not self._require_instance():
             return
-        self._set_status(f"待实现：对 {self.selected_instance.name} 执行排序")
+
+        self.last_sorted_order = sort_groups_by_ratio(self.selected_instance)
+        fig = create_sorted_scatter_figure(self.selected_instance, self.last_sorted_order)
+        self._render_figure(fig, target="sorted")
+
+        top_k = min(5, len(self.last_sorted_order))
+        top_groups = [str(idx + 1) for idx in self.last_sorted_order[:top_k]]
+        self._set_result_text(
+            f"实例：{self.selected_instance.name}\n"
+            "已按第3件物品价值/重量比完成非升序排序。\n"
+            f"前 {top_k} 个组（原始编号）：" + ", ".join(top_groups)
+        )
+        self._set_status(f"已完成 {self.selected_instance.name} 的排序并绘制排序图")
+
+        if self.notebook and self.tab_sorted:
+            self.notebook.select(self.tab_sorted)
+
+    def _render_figure(self, fig, target: str) -> None:
+        if target == "chart":
+            host = self.chart_host
+            old_canvas = self.chart_canvas
+        else:
+            host = self.sorted_host
+            old_canvas = self.sorted_canvas
+
+        if host is None:
+            return
+
+        for child in host.winfo_children():
+            child.destroy()
+
+        if old_canvas is not None:
+            old_canvas.get_tk_widget().destroy()
+
+        canvas = FigureCanvasTkAgg(fig, master=host)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        if target == "chart":
+            self.chart_canvas = canvas
+        else:
+            self.sorted_canvas = canvas
 
     def _on_solve(self) -> None:
         if not self._require_instance():
