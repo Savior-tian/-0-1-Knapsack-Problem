@@ -11,6 +11,7 @@
 import matplotlib
 matplotlib.use("Agg")  # 非交互后端，嵌入 tkinter 时切换为 TkAgg
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 from matplotlib.figure import Figure
 
 from src.data_parser import DKPInstance
@@ -19,7 +20,37 @@ from src.data_parser import DKPInstance
 # 三件物品的颜色和标记
 _COLORS = ["#E63946", "#457B9D", "#2A9D8F"]
 _MARKERS = ["o", "s", "^"]
-_LABELS = ["物品1 (p₁,w₁)", "物品2 (p₂,w₂)", "物品3 (p₃,w₃)"]
+_LABELS = ["物品1 (p1,w1)", "物品2 (p2,w2)", "物品3 (p3,w3)"]
+
+
+def _configure_chinese_font() -> None:
+    """配置 matplotlib 中文字体，避免图表标题/坐标轴出现乱码。"""
+    candidates = [
+        "Microsoft YaHei UI",
+        "Microsoft YaHei",
+        "SimHei",
+        "Noto Sans CJK SC",
+        "WenQuanYi Zen Hei",
+        "Arial Unicode MS",
+    ]
+
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    selected = None
+    for name in candidates:
+        if name in installed:
+            selected = name
+            break
+
+    # 选到中文字体时优先使用；无中文字体时回退 DejaVu Sans。
+    if selected:
+        plt.rcParams["font.sans-serif"] = [selected, "DejaVu Sans"]
+    else:
+        plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+
+    plt.rcParams["axes.unicode_minus"] = False
+
+
+_configure_chinese_font()
 
 
 def create_scatter_figure(instance: DKPInstance, figsize=(8, 5)) -> Figure:
