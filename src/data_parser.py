@@ -63,7 +63,7 @@ def parse_file(file_path: str) -> List[DKPInstance]:
 
     instances: List[DKPInstance] = []
 
-    # 用实例名称将文件切分（如 UDKP1:、WDKP5: 等）
+    # 用实例名称将文件切分
     # 捕获 "NAME:" 以及其后续内容直到下一个 "NAME:" 或文件末尾
     pattern = re.compile(
         r"([A-Z]+\d+)\s*:\s*\n(.*?)(?=\n[A-Z]+\d+\s*:|$)",
@@ -106,7 +106,7 @@ def parse_file(file_path: str) -> List[DKPInstance]:
         weights = _parse_int_list(weight_match.group(1))
 
         if len(profits) != 3 * n_groups or len(weights) != 3 * n_groups:
-            # 数据不完整，跳过
+            # 数据不完整，则跳过
             continue
 
         inst = DKPInstance(
