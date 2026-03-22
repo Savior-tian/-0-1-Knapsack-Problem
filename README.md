@@ -6,7 +6,7 @@
 - 散点图可视化（重量-价值）
 - 按第3件物品价值/重量比排序并可视化
 - 动态规划求解最优值与选中方案
-- 导出结果到 TXT / XLSX
+- 导出结果到 TXT / XLSX / 批量汇总 CSV
 - tkinter 图形界面交互
 
 ## 1. 环境准备
@@ -47,6 +47,7 @@ python -m src.gui_app
 4. 点击“执行排序”，查看按第3件价值/重量比排序图。
 5. 点击“运行 DP 求解”，查看最优值、耗时和选中物品明细。
 6. 点击“导出结果”，保存为 `.txt` 或 `.xlsx`。
+7. （可选）点击"批量求解并导出汇总"，对当前文件中所有实例批量求解，汇总结果保存为 `.csv`。
 
 ## 4. 常见问题
 
@@ -68,6 +69,6 @@ python -m pip install openpyxl -i https://pypi.org/simple
 - `src/dp_solver.py`：动态规划求解
 - `src/sorter.py`：排序逻辑
 - `src/visualizer.py`：图表生成
-- `src/exporter.py`：导出 TXT / XLSX
+- `src/exporter.py`：导出 TXT / XLSX / 批量汇总 CSV
 - `src/gui_app.py`：GUI 应用
 - `run.py`：启动入口
