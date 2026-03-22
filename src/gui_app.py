@@ -20,7 +20,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from src.data_parser import DKPInstance, parse_file
 from src.dp_solver import SolveResult, solve
-from src.exporter import export_excel, export_txt
+from src.exporter import export_batch_summary_csv, export_excel, export_txt
 from src.sorter import sort_groups_by_ratio
 from src.visualizer import create_scatter_figure, create_sorted_scatter_figure
 
@@ -209,6 +209,14 @@ class DKPApp(tk.Tk):
         )
         self.btn_export.grid(row=10, column=0, sticky="ew", pady=(4, 0))
 
+        self.btn_batch_export = ttk.Button(
+            left_panel,
+            text="批量求解并导出汇总",
+            command=self._on_batch_export,
+            state="disabled",
+        )
+        self.btn_batch_export.grid(row=11, column=0, sticky="ew", pady=(4, 0))
+
     def _build_right_panel(self, parent: ttk.Frame) -> None:
         right_panel = ttk.LabelFrame(
             parent,
@@ -371,6 +379,7 @@ class DKPApp(tk.Tk):
         self.btn_sort.configure(state=state)
         self.btn_solve.configure(state=state)
         self.btn_export.configure(state=state)
+        self.btn_batch_export.configure(state=state)
 
     def _require_instance(self) -> bool:
         if self.selected_instance is None:
@@ -551,6 +560,35 @@ class DKPApp(tk.Tk):
         self._set_status(f"导出成功：{out_path}")
         messagebox.showinfo("导出成功", f"文件已保存到：\n{out_path}")
         return True
+
+    def _on_batch_export(self) -> None:
+        if not self.instances:
+            messagebox.showwarning("提示", "请先加载实例。")
+            self._set_status("请先加载实例")
+            return
+
+        default_name = "batch_summary.csv"
+        out_path = filedialog.asksaveasfilename(
+            title="导出批量求解汇总",
+            defaultextension=".csv",
+            initialfile=default_name,
+            filetypes=[
+                ("CSV Files", "*.csv"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if not out_path:
+            return
+
+        try:
+            export_batch_summary_csv(self.instances, out_path)
+        except Exception as exc:
+            messagebox.showerror("导出失败", f"批量导出失败：{exc}")
+            self._set_status("批量导出失败")
+            return
+
+        self._set_status(f"批量汇总导出成功：{out_path}")
+        messagebox.showinfo("导出成功", f"批量汇总文件已保存到：\n{out_path}")
 
 
 def run_app() -> None:

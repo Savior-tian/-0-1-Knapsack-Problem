@@ -9,11 +9,12 @@ Excel 格式：
     Sheet2 "所选物品"：每行一件选中物品的详情。
 """
 
+import csv
 import datetime
 from typing import List
 
 from src.data_parser import DKPInstance
-from src.dp_solver import SolveResult
+from src.dp_solver import SolveResult, solve
 from src.sorter import get_sorted_ratios
 
 
@@ -201,3 +202,41 @@ def export_excel(
     )
 
     wb.save(out_path)
+
+
+def export_batch_summary_csv(instances: list[DKPInstance], out_path: str) -> None:
+    """批量求解实例并导出汇总 CSV。"""
+    headers = [
+        "instance_name",
+        "num_groups",
+        "capacity",
+        "optimal_value",
+        "solve_time_ms",
+        "selected_items_count",
+        "total_weight",
+        "weight_utilization",
+    ]
+
+    with open(out_path, "w", encoding="utf-8-sig", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers)
+
+        for instance in instances:
+            result = solve(instance)
+            total_weight = sum(item[3] for item in result.selected_items)
+            if instance.capacity > 0:
+                utilization = total_weight / instance.capacity
+            else:
+                utilization = 0.0
+            writer.writerow(
+                [
+                    instance.name,
+                    instance.num_groups,
+                    instance.capacity,
+                    result.optimal_value,
+                    round(result.solve_time_ms, 4),
+                    len(result.selected_items),
+                    total_weight,
+                    round(utilization, 6),
+                ]
+            )
