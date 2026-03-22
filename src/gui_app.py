@@ -1,26 +1,37 @@
-"""GUI 主窗口布局模块。
+"""GUI 主窗口模块。
 
-本模块仅实现界面骨架（第一个 GUI 子任务）：
-1) 顶部标题区
-2) 左侧控制区（预留按钮位置）
-3) 右侧图表/结果区（预留图嵌入位置）
-4) 底部状态栏
+当前已完成：
+1) 主窗口布局
+2) 控制面板 + 按钮交互骨架
+
+说明：绘图、排序、求解、导出的完整业务接入在后续子任务完成。
 """
 
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
+from typing import List, Optional
+
+from src.data_parser import DKPInstance, parse_file
 
 
 class DKPApp(tk.Tk):
-    """D{0-1}KP 图形界面主窗口（布局骨架）。"""
+    """D{0-1}KP 图形界面主窗口。"""
 
     def __init__(self) -> None:
         super().__init__()
         self.title("D{0-1} 背包问题求解系统")
         self.geometry("1200x760")
         self.minsize(980, 620)
+
+        self.file_var = tk.StringVar()
+        self.instance_var = tk.StringVar()
+        self.status_var = tk.StringVar(value="就绪：GUI 主窗口布局与控制面板已完成")
+
+        self.current_file: str = ""
+        self.instances: List[DKPInstance] = []
+        self.selected_instance: Optional[DKPInstance] = None
 
         self._build_style()
         self._build_layout()
@@ -54,7 +65,7 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             header,
-            text="主窗口布局已就绪：后续将接入数据加载、求解、排序、可视化与导出功能。",
+            text="当前阶段：主窗口布局 + 控制面板按钮已接入。",
             style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
@@ -73,7 +84,7 @@ class DKPApp(tk.Tk):
     def _build_left_panel(self, parent: ttk.Frame) -> None:
         left_panel = ttk.LabelFrame(
             parent,
-            text="控制面板（待接入交互）",
+            text="控制面板",
             style="Section.TLabelframe",
             padding=12,
             width=320,
@@ -81,31 +92,78 @@ class DKPApp(tk.Tk):
         left_panel.grid(row=0, column=0, sticky="nsw", padx=(0, 12))
         left_panel.grid_propagate(False)
 
-        # 预留：后续子任务“控制面板+按钮”将把控件放在此列
-        for i in range(12):
+        for i in range(16):
             left_panel.rowconfigure(i, weight=0)
         left_panel.columnconfigure(0, weight=1)
 
         ttk.Label(left_panel, text="数据文件", style="Hint.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(left_panel, state="readonly").grid(row=1, column=0, sticky="ew", pady=(4, 10))
+        ttk.Entry(left_panel, textvariable=self.file_var, state="readonly").grid(
+            row=1,
+            column=0,
+            sticky="ew",
+            pady=(4, 6),
+        )
+        ttk.Button(left_panel, text="选择文件...", command=self._on_choose_file).grid(
+            row=2,
+            column=0,
+            sticky="ew",
+        )
 
-        ttk.Label(left_panel, text="实例选择", style="Hint.TLabel").grid(row=2, column=0, sticky="w")
-        ttk.Combobox(left_panel, state="readonly", values=[]).grid(row=3, column=0, sticky="ew", pady=(4, 10))
+        ttk.Label(left_panel, text="实例选择", style="Hint.TLabel").grid(row=3, column=0, sticky="w", pady=(12, 0))
+        self.instance_combo = ttk.Combobox(
+            left_panel,
+            textvariable=self.instance_var,
+            state="readonly",
+            values=[],
+        )
+        self.instance_combo.grid(row=4, column=0, sticky="ew", pady=(4, 6))
+        self.instance_combo.bind("<<ComboboxSelected>>", self._on_instance_selected)
 
-        ttk.Label(left_panel, text="操作按钮区域（占位）", style="Hint.TLabel").grid(row=4, column=0, sticky="w")
-        for r in range(5, 10):
-            ttk.Button(left_panel, text="占位按钮", state="disabled").grid(
-                row=r,
-                column=0,
-                sticky="ew",
-                pady=(4, 0),
-            )
+        ttk.Button(left_panel, text="加载实例", command=self._on_load_instances).grid(
+            row=5,
+            column=0,
+            sticky="ew",
+        )
+
+        ttk.Separator(left_panel, orient="horizontal").grid(row=6, column=0, sticky="ew", pady=10)
+
+        self.btn_show_scatter = ttk.Button(
+            left_panel,
+            text="绘制散点图",
+            command=self._on_show_scatter,
+            state="disabled",
+        )
+        self.btn_show_scatter.grid(row=7, column=0, sticky="ew")
+
+        self.btn_sort = ttk.Button(
+            left_panel,
+            text="执行排序",
+            command=self._on_sort,
+            state="disabled",
+        )
+        self.btn_sort.grid(row=8, column=0, sticky="ew", pady=(4, 0))
+
+        self.btn_solve = ttk.Button(
+            left_panel,
+            text="运行 DP 求解",
+            command=self._on_solve,
+            state="disabled",
+        )
+        self.btn_solve.grid(row=9, column=0, sticky="ew", pady=(4, 0))
+
+        self.btn_export = ttk.Button(
+            left_panel,
+            text="导出结果",
+            command=self._on_export,
+            state="disabled",
+        )
+        self.btn_export.grid(row=10, column=0, sticky="ew", pady=(4, 0))
 
         ttk.Label(
             left_panel,
-            text="说明：当前阶段只完成主窗口布局。",
+            text="说明：完整绘图/求解/导出将在后续子任务接入。",
             style="Hint.TLabel",
-        ).grid(row=11, column=0, sticky="sw", pady=(12, 0))
+        ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
 
     def _build_right_panel(self, parent: ttk.Frame) -> None:
         right_panel = ttk.LabelFrame(
@@ -153,12 +211,99 @@ class DKPApp(tk.Tk):
         status.grid(row=2, column=0, sticky="ew")
         status.columnconfigure(0, weight=1)
 
-        self.status_var = tk.StringVar(value="就绪：GUI 主窗口布局已完成")
         ttk.Label(status, textvariable=self.status_var, style="Hint.TLabel").grid(
             row=0,
             column=0,
             sticky="w",
         )
+
+    def _set_status(self, text: str) -> None:
+        self.status_var.set(text)
+
+    def _on_choose_file(self) -> None:
+        file_path = filedialog.askopenfilename(
+            title="选择 D{0-1}KP 数据文件",
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+        )
+        if not file_path:
+            return
+        self.current_file = file_path
+        self.file_var.set(file_path)
+        self._set_status(f"已选择数据文件：{file_path}")
+
+    def _on_load_instances(self) -> None:
+        if not self.current_file:
+            messagebox.showwarning("提示", "请先选择数据文件。")
+            return
+
+        try:
+            self.instances = parse_file(self.current_file)
+        except Exception as exc:
+            messagebox.showerror("加载失败", f"解析文件失败：{exc}")
+            self._set_status("解析失败：请检查数据文件格式")
+            return
+
+        if not self.instances:
+            messagebox.showwarning("提示", "未解析到实例，请检查文件内容。")
+            self._set_status("未解析到实例")
+            return
+
+        names = [inst.name for inst in self.instances]
+        self.instance_combo["values"] = names
+        self.instance_combo.current(0)
+        self._sync_selected_instance()
+
+        self._set_status(f"已加载 {len(self.instances)} 个实例")
+        self._toggle_action_buttons(enabled=True)
+
+    def _sync_selected_instance(self) -> None:
+        if not self.instances:
+            self.selected_instance = None
+            return
+
+        idx = self.instance_combo.current()
+        if idx < 0:
+            idx = 0
+        self.selected_instance = self.instances[idx]
+
+    def _on_instance_selected(self, _event: tk.Event) -> None:
+        self._sync_selected_instance()
+        if self.selected_instance:
+            self._set_status(f"当前实例：{self.selected_instance.name}")
+
+    def _toggle_action_buttons(self, enabled: bool) -> None:
+        state = "normal" if enabled else "disabled"
+        self.btn_show_scatter.configure(state=state)
+        self.btn_sort.configure(state=state)
+        self.btn_solve.configure(state=state)
+        self.btn_export.configure(state=state)
+
+    def _require_instance(self) -> bool:
+        if self.selected_instance is None:
+            messagebox.showwarning("提示", "请先加载并选择实例。")
+            self._set_status("请先加载实例")
+            return False
+        return True
+
+    def _on_show_scatter(self) -> None:
+        if not self._require_instance():
+            return
+        self._set_status(f"待实现：绘制 {self.selected_instance.name} 的散点图")
+
+    def _on_sort(self) -> None:
+        if not self._require_instance():
+            return
+        self._set_status(f"待实现：对 {self.selected_instance.name} 执行排序")
+
+    def _on_solve(self) -> None:
+        if not self._require_instance():
+            return
+        self._set_status(f"待实现：对 {self.selected_instance.name} 运行 DP 求解")
+
+    def _on_export(self) -> None:
+        if not self._require_instance():
+            return
+        self._set_status(f"待实现：导出 {self.selected_instance.name} 的结果")
 
 
 def run_app() -> None:

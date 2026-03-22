@@ -42,8 +42,8 @@ class DKPInstance:
 
 def _parse_int_list(raw: str) -> List[int]:
     """从逗号分隔的字符串中解析整数列表（忽略空白和尾随逗号）。"""
-    tokens = [t.strip() for t in raw.split(",") if t.strip()]
-    return [int(t) for t in tokens if t]
+    # 数据文件里可能出现如 "523." 的写法，统一用正则提取整数可更稳健。
+    return [int(x) for x in re.findall(r"-?\d+", raw)]
 
 
 def parse_file(file_path: str) -> List[DKPInstance]:
