@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import List, Optional
@@ -19,6 +20,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from src.data_parser import DKPInstance, parse_file
 from src.dp_solver import SolveResult, solve
+from src.exporter import export_excel, export_txt
 from src.sorter import sort_groups_by_ratio
 from src.visualizer import create_scatter_figure, create_sorted_scatter_figure
 
@@ -181,7 +183,7 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             left_panel,
-            text="说明：导出交互将在后续子任务接入。",
+            text="说明：导出支持 TXT 与 XLSX。",
             style="Hint.TLabel",
         ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
 
@@ -459,7 +461,60 @@ class DKPApp(tk.Tk):
     def _on_export(self) -> None:
         if not self._require_instance():
             return
-        self._set_status(f"待实现：导出 {self.selected_instance.name} 的结果")
+
+        default_name = f"{self.selected_instance.name}_result.txt"
+        out_path = filedialog.asksaveasfilename(
+            title="导出求解结果",
+            defaultextension=".txt",
+            initialfile=default_name,
+            filetypes=[
+                ("Text Files", "*.txt"),
+                ("Excel Files", "*.xlsx"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if not out_path:
+            return
+
+        self._export_to_path(out_path)
+
+    def _export_to_path(self, out_path: str) -> bool:
+        if not self._require_instance():
+            return False
+
+        # 若当前实例尚未求解，则先自动求解，保证导出内容完整。
+        if (
+            self.last_solve_result is None
+            or self.last_solve_result.instance_name != self.selected_instance.name
+        ):
+            self.last_solve_result = solve(self.selected_instance)
+
+        if not self.last_sorted_order:
+            self.last_sorted_order = sort_groups_by_ratio(self.selected_instance)
+
+        ext = os.path.splitext(out_path)[1].lower()
+        try:
+            if ext == ".xlsx":
+                export_excel(
+                    self.selected_instance,
+                    self.last_solve_result,
+                    self.last_sorted_order,
+                    out_path,
+                )
+            else:
+                export_txt(self.selected_instance, self.last_solve_result, out_path)
+        except ImportError as exc:
+            messagebox.showerror("导出失败", str(exc))
+            self._set_status("导出失败：缺少依赖库")
+            return False
+        except Exception as exc:
+            messagebox.showerror("导出失败", f"写入文件失败：{exc}")
+            self._set_status("导出失败：写入异常")
+            return False
+
+        self._set_status(f"导出成功：{out_path}")
+        messagebox.showinfo("导出成功", f"文件已保存到：\n{out_path}")
+        return True
 
 
 def run_app() -> None:
