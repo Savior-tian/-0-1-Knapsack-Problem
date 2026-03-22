@@ -91,7 +91,9 @@ class DKPApp(tk.Tk):
 
         ttk.Label(
             header,
-            text="当前阶段：主窗口布局 + 控制面板按钮 + 图表嵌入 + 求解结果展示已接入。",
+            text=(
+                "当前阶段：主窗口布局 + 控制面板按钮 + 图表嵌入 + 求解结果展示已接入。"
+            ),
             style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
@@ -122,6 +124,18 @@ class DKPApp(tk.Tk):
             left_panel.rowconfigure(i, weight=0)
         left_panel.columnconfigure(0, weight=1)
 
+        self._build_file_selector(left_panel)
+        self._build_instance_selector(left_panel)
+        self._build_action_buttons(left_panel)
+
+        ttk.Label(
+            left_panel,
+            text="说明：导出支持 TXT 与 XLSX。",
+            style="Hint.TLabel",
+        ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
+
+    def _build_file_selector(self, left_panel: ttk.LabelFrame) -> None:
+
         ttk.Label(left_panel, text="数据文件", style="Hint.TLabel").grid(
             row=0, column=0, sticky="w"
         )
@@ -136,6 +150,8 @@ class DKPApp(tk.Tk):
             column=0,
             sticky="ew",
         )
+
+    def _build_instance_selector(self, left_panel: ttk.LabelFrame) -> None:
 
         ttk.Label(left_panel, text="实例选择", style="Hint.TLabel").grid(
             row=3, column=0, sticky="w", pady=(12, 0)
@@ -158,6 +174,8 @@ class DKPApp(tk.Tk):
         ttk.Separator(left_panel, orient="horizontal").grid(
             row=6, column=0, sticky="ew", pady=10
         )
+
+    def _build_action_buttons(self, left_panel: ttk.LabelFrame) -> None:
 
         self.btn_show_scatter = ttk.Button(
             left_panel,
@@ -190,12 +208,6 @@ class DKPApp(tk.Tk):
             state="disabled",
         )
         self.btn_export.grid(row=10, column=0, sticky="ew", pady=(4, 0))
-
-        ttk.Label(
-            left_panel,
-            text="说明：导出支持 TXT 与 XLSX。",
-            style="Hint.TLabel",
-        ).grid(row=15, column=0, sticky="sw", pady=(12, 0))
 
     def _build_right_panel(self, parent: ttk.Frame) -> None:
         right_panel = ttk.LabelFrame(
@@ -443,7 +455,9 @@ class DKPApp(tk.Tk):
         self._set_result_text(report)
 
         self._set_status(
-            f"求解完成：{self.selected_instance.name} 最优值 = {self.last_solve_result.optimal_value}"
+            "求解完成："
+            f"{self.selected_instance.name} "
+            f"最优值 = {self.last_solve_result.optimal_value}"
         )
 
         if self.notebook and self.tab_result:
@@ -464,7 +478,9 @@ class DKPApp(tk.Tk):
         total_weight = 0
         for group_idx, item_in_group, profit, weight in result.selected_items:
             lines.append(
-                f"{group_idx + 1:>4}    {item_in_group + 1:>4}    {profit:>4}  {weight:>4}"
+                f"{group_idx + 1:>4}    "
+                f"{item_in_group + 1:>4}    "
+                f"{profit:>4}  {weight:>4}"
             )
             total_weight += weight
 

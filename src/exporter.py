@@ -17,6 +17,101 @@ from src.dp_solver import SolveResult
 from src.sorter import get_sorted_ratios
 
 
+def _create_header_style(font_cls, fill_cls):
+    """创建 Excel 统一表头样式。"""
+    header_font = font_cls(bold=True, color="FFFFFF")
+    header_fill = fill_cls(fill_type="solid", fgColor="457B9D")
+    return header_font, header_fill
+
+
+def _fill_summary_sheet(
+    ws_summary, instance: DKPInstance, result: SolveResult, header_font, header_fill
+) -> None:
+    ws_summary.title = "摘要"
+
+    summary_data = [
+        ("项目", "内容"),
+        ("实例名称", result.instance_name),
+        ("组数 (N)", instance.num_groups),
+        ("背包容量", instance.capacity),
+        ("最优总价值", result.optimal_value),
+        ("求解耗时 (ms)", f"{result.solve_time_ms:.4f}"),
+        ("选中物品数", len(result.selected_items)),
+        ("导出时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    ]
+
+    for row_idx, (key, val) in enumerate(summary_data, start=1):
+        cell_k = ws_summary.cell(row=row_idx, column=1, value=key)
+        cell_v = ws_summary.cell(row=row_idx, column=2, value=val)
+        if row_idx == 1:
+            cell_k.font = header_font
+            cell_k.fill = header_fill
+            cell_v.font = header_font
+            cell_v.fill = header_fill
+
+    ws_summary.column_dimensions["A"].width = 20
+    ws_summary.column_dimensions["B"].width = 30
+
+
+def _fill_items_sheet(
+    ws_items, result: SolveResult, header_font, header_fill, alignment_cls, font_cls
+) -> None:
+    item_headers = ["组编号", "组内编号", "价值", "重量"]
+    for col_idx, header in enumerate(item_headers, start=1):
+        cell = ws_items.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = alignment_cls(horizontal="center")
+
+    total_weight = 0
+    for row_idx, (group_idx, item_in_group, profit, weight) in enumerate(
+        result.selected_items, start=2
+    ):
+        ws_items.cell(row=row_idx, column=1, value=group_idx + 1)
+        ws_items.cell(row=row_idx, column=2, value=item_in_group + 1)
+        ws_items.cell(row=row_idx, column=3, value=profit)
+        ws_items.cell(row=row_idx, column=4, value=weight)
+        total_weight += weight
+
+    last_row = len(result.selected_items) + 2
+    ws_items.cell(row=last_row, column=1, value="合计").font = font_cls(bold=True)
+    ws_items.cell(row=last_row, column=3, value=result.optimal_value).font = font_cls(
+        bold=True
+    )
+    ws_items.cell(row=last_row, column=4, value=total_weight).font = font_cls(bold=True)
+
+    for col in ["A", "B", "C", "D"]:
+        ws_items.column_dimensions[col].width = 14
+
+
+def _fill_sort_sheet(
+    ws_sort,
+    instance: DKPInstance,
+    sorted_order: List[int],
+    header_font,
+    header_fill,
+    alignment_cls,
+) -> None:
+    sort_headers = ["排序名次", "原始组编号", "第3件价值", "第3件重量", "价值/重量比"]
+    for col_idx, header in enumerate(sort_headers, start=1):
+        cell = ws_sort.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = alignment_cls(horizontal="center")
+
+    ratios = get_sorted_ratios(instance, sorted_order)
+    for rank, (orig_idx, ratio) in enumerate(zip(sorted_order, ratios), start=1):
+        grp = instance.groups[orig_idx]
+        ws_sort.cell(row=rank + 1, column=1, value=rank)
+        ws_sort.cell(row=rank + 1, column=2, value=orig_idx + 1)
+        ws_sort.cell(row=rank + 1, column=3, value=grp.profits[2])
+        ws_sort.cell(row=rank + 1, column=4, value=grp.weights[2])
+        ws_sort.cell(row=rank + 1, column=5, value=round(ratio, 6))
+
+    for col in ["A", "B", "C", "D", "E"]:
+        ws_sort.column_dimensions[col].width = 16
+
+
 def export_txt(
     instance: DKPInstance,
     result: SolveResult,
@@ -82,95 +177,27 @@ def export_excel(
     """
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Alignment, Font, PatternFill
     except ImportError as exc:
         raise ImportError(
             "导出 Excel 需要安装 openpyxl，请运行：pip install openpyxl"
         ) from exc
 
     wb = openpyxl.Workbook()
-
-    # ---- Sheet 1: 摘要 ----
     ws_summary = wb.active
-    ws_summary.title = "摘要"
-
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(fill_type="solid", fgColor="457B9D")
-
-    summary_data = [
-        ("项目", "内容"),
-        ("实例名称", result.instance_name),
-        ("组数 (N)", instance.num_groups),
-        ("背包容量", instance.capacity),
-        ("最优总价值", result.optimal_value),
-        ("求解耗时 (ms)", f"{result.solve_time_ms:.4f}"),
-        ("选中物品数", len(result.selected_items)),
-        ("导出时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-    ]
-
-    for row_idx, (key, val) in enumerate(summary_data, start=1):
-        cell_k = ws_summary.cell(row=row_idx, column=1, value=key)
-        cell_v = ws_summary.cell(row=row_idx, column=2, value=val)
-        if row_idx == 1:
-            cell_k.font = header_font
-            cell_k.fill = header_fill
-            cell_v.font = header_font
-            cell_v.fill = header_fill
-
-    ws_summary.column_dimensions["A"].width = 20
-    ws_summary.column_dimensions["B"].width = 30
-
-    # ---- Sheet 2: 所选物品 ----
     ws_items = wb.create_sheet("所选物品")
-
-    item_headers = ["组编号", "组内编号", "价值", "重量"]
-    for col_idx, header in enumerate(item_headers, start=1):
-        cell = ws_items.cell(row=1, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-
-    total_weight = 0
-    for row_idx, (group_idx, item_in_group, profit, weight) in enumerate(
-        result.selected_items, start=2
-    ):
-        ws_items.cell(row=row_idx, column=1, value=group_idx + 1)
-        ws_items.cell(row=row_idx, column=2, value=item_in_group + 1)
-        ws_items.cell(row=row_idx, column=3, value=profit)
-        ws_items.cell(row=row_idx, column=4, value=weight)
-        total_weight += weight
-
-    # 合计行
-    last_row = len(result.selected_items) + 2
-    ws_items.cell(row=last_row, column=1, value="合计").font = Font(bold=True)
-    ws_items.cell(row=last_row, column=3, value=result.optimal_value).font = Font(
-        bold=True
-    )
-    ws_items.cell(row=last_row, column=4, value=total_weight).font = Font(bold=True)
-
-    for col in ["A", "B", "C", "D"]:
-        ws_items.column_dimensions[col].width = 14
-
-    # ---- Sheet 3: 排序结果 ----
     ws_sort = wb.create_sheet("按比值排序")
 
-    sort_headers = ["排序名次", "原始组编号", "第3件价值", "第3件重量", "价值/重量比"]
-    for col_idx, header in enumerate(sort_headers, start=1):
-        cell = ws_sort.cell(row=1, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-
-    ratios = get_sorted_ratios(instance, sorted_order)
-    for rank, (orig_idx, ratio) in enumerate(zip(sorted_order, ratios), start=1):
-        grp = instance.groups[orig_idx]
-        ws_sort.cell(row=rank + 1, column=1, value=rank)
-        ws_sort.cell(row=rank + 1, column=2, value=orig_idx + 1)
-        ws_sort.cell(row=rank + 1, column=3, value=grp.profits[2])
-        ws_sort.cell(row=rank + 1, column=4, value=grp.weights[2])
-        ws_sort.cell(row=rank + 1, column=5, value=round(ratio, 6))
-
-    for col in ["A", "B", "C", "D", "E"]:
-        ws_sort.column_dimensions[col].width = 16
+    header_font, header_fill = _create_header_style(Font, PatternFill)
+    _fill_summary_sheet(ws_summary, instance, result, header_font, header_fill)
+    _fill_items_sheet(ws_items, result, header_font, header_fill, Alignment, Font)
+    _fill_sort_sheet(
+        ws_sort,
+        instance,
+        sorted_order,
+        header_font,
+        header_fill,
+        Alignment,
+    )
 
     wb.save(out_path)

@@ -17,7 +17,6 @@ from matplotlib.figure import Figure
 
 from src.data_parser import DKPInstance
 
-
 # 三件物品的颜色和标记
 _COLORS = ["#E63946", "#457B9D", "#2A9D8F"]
 _MARKERS = ["o", "s", "^"]
@@ -81,7 +80,8 @@ def create_scatter_figure(instance: DKPInstance, figsize=(8, 5)) -> Figure:
         )
 
     ax.set_title(
-        f"{instance.name} — 物品散点图\n(容量={instance.capacity}, 组数={instance.num_groups})"
+        f"{instance.name} — 物品散点图\n"
+        f"(容量={instance.capacity}, 组数={instance.num_groups})"
     )
     ax.set_xlabel("重量 (Weight)")
     ax.set_ylabel("价值 (Value / Profit)")
