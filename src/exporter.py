@@ -11,7 +11,7 @@ Excel 格式：
 
 import csv
 import datetime
-from typing import List
+from typing import Callable, List
 
 from src.data_parser import DKPInstance
 from src.dp_solver import SolveResult, solve
@@ -204,7 +204,12 @@ def export_excel(
     wb.save(out_path)
 
 
-def export_batch_summary_csv(instances: list[DKPInstance], out_path: str) -> None:
+def export_batch_summary_csv(
+    instances: list[DKPInstance],
+    out_path: str,
+    progress_callback: Callable[[int, int, DKPInstance], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+) -> None:
     """批量求解实例并导出汇总 CSV。"""
     headers = [
         "instance_name",
@@ -217,11 +222,16 @@ def export_batch_summary_csv(instances: list[DKPInstance], out_path: str) -> Non
         "weight_utilization",
     ]
 
-    with open(out_path, "w", encoding="utf-8-sig", newline="") as csvfile:
+    with open(out_path, "w", encoding="utf-8-sig", newline="", buffering=1) as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(headers)
+        csvfile.flush()
 
-        for instance in instances:
+        total = len(instances)
+        for idx, instance in enumerate(instances, start=1):
+            if should_cancel is not None and should_cancel():
+                raise InterruptedError("批量导出已取消")
+
             result = solve(instance)
             total_weight = sum(item[3] for item in result.selected_items)
             if instance.capacity > 0:
@@ -240,3 +250,9 @@ def export_batch_summary_csv(instances: list[DKPInstance], out_path: str) -> Non
                     round(utilization, 6),
                 ]
             )
+            csvfile.flush()
+            if progress_callback is not None:
+                progress_callback(idx, total, instance)
+
+            if should_cancel is not None and should_cancel():
+                raise InterruptedError("批量导出已取消")

@@ -580,12 +580,86 @@ class DKPApp(tk.Tk):
         if not out_path:
             return
 
+        total = len(self.instances)
+        cancelled = {"value": False}
+
+        progress_win = tk.Toplevel(self)
+        progress_win.title("批量导出进度")
+        progress_win.transient(self)
+        progress_win.resizable(False, False)
+        progress_win.grab_set()
+
+        ttk.Label(
+            progress_win,
+            text="正在批量求解并导出，请稍候...",
+            style="Subtitle.TLabel",
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=14, pady=(12, 6))
+
+        progress_var = tk.StringVar(value=f"0/{total}")
+        ttk.Label(progress_win, textvariable=progress_var).grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=14,
+            pady=(0, 6),
+        )
+
+        progress_bar = ttk.Progressbar(
+            progress_win,
+            orient="horizontal",
+            mode="determinate",
+            length=360,
+            maximum=total,
+            value=0,
+        )
+        progress_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14)
+
+        def on_cancel() -> None:
+            cancelled["value"] = True
+            self._set_status("批量导出取消中，请稍候...")
+
+        ttk.Button(progress_win, text="取消", command=on_cancel).grid(
+            row=3,
+            column=1,
+            sticky="e",
+            padx=14,
+            pady=(10, 12),
+        )
+
+        progress_win.columnconfigure(0, weight=1)
+
         try:
-            export_batch_summary_csv(self.instances, out_path)
+            self._toggle_action_buttons(enabled=False)
+            self.update_idletasks()
+
+            def on_progress(done: int, total: int, instance: DKPInstance) -> None:
+                self._set_status(f"批量求解导出中：{done}/{total} - {instance.name}")
+                progress_var.set(f"{done}/{total} - {instance.name}")
+                progress_bar.configure(value=done)
+                self.update()
+
+            export_batch_summary_csv(
+                self.instances,
+                out_path,
+                progress_callback=on_progress,
+                should_cancel=lambda: cancelled["value"],
+            )
+        except InterruptedError:
+            self._set_status(f"批量导出已取消：{out_path}")
+            messagebox.showinfo(
+                "已取消",
+                "批量导出已取消。\n已写入的数据会保留在当前文件中。",
+            )
+            return
         except Exception as exc:
             messagebox.showerror("导出失败", f"批量导出失败：{exc}")
             self._set_status("批量导出失败")
             return
+        finally:
+            if progress_win.winfo_exists():
+                progress_win.destroy()
+            self._toggle_action_buttons(enabled=True)
 
         self._set_status(f"批量汇总导出成功：{out_path}")
         messagebox.showinfo("导出成功", f"批量汇总文件已保存到：\n{out_path}")
