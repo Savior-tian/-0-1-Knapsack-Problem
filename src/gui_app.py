@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import os
+import queue
+import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import List, Optional
@@ -581,13 +583,15 @@ class DKPApp(tk.Tk):
             return
 
         total = len(self.instances)
-        cancelled = {"value": False}
+        cancel_event = threading.Event()
+        progress_queue: queue.Queue[tuple[str, object]] = queue.Queue()
 
         progress_win = tk.Toplevel(self)
         progress_win.title("批量导出进度")
         progress_win.transient(self)
         progress_win.resizable(False, False)
         progress_win.grab_set()
+        progress_win.protocol("WM_DELETE_WINDOW", cancel_event.set)
 
         ttk.Label(
             progress_win,
@@ -616,7 +620,7 @@ class DKPApp(tk.Tk):
         progress_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14)
 
         def on_cancel() -> None:
-            cancelled["value"] = True
+            cancel_event.set()
             self._set_status("批量导出取消中，请稍候...")
 
         ttk.Button(progress_win, text="取消", command=on_cancel).grid(
@@ -629,40 +633,80 @@ class DKPApp(tk.Tk):
 
         progress_win.columnconfigure(0, weight=1)
 
-        try:
-            self._toggle_action_buttons(enabled=False)
-            self.update_idletasks()
+        self._toggle_action_buttons(enabled=False)
+        self.update_idletasks()
 
-            def on_progress(done: int, total: int, instance: DKPInstance) -> None:
-                self._set_status(f"批量求解导出中：{done}/{total} - {instance.name}")
-                progress_var.set(f"{done}/{total} - {instance.name}")
-                progress_bar.configure(value=done)
-                self.update()
+        def worker() -> None:
+            def report_progress(
+                done: int, total_count: int, instance: DKPInstance
+            ) -> None:
+                progress_queue.put(("progress", done, total_count, instance.name))
 
-            export_batch_summary_csv(
-                self.instances,
-                out_path,
-                progress_callback=on_progress,
-                should_cancel=lambda: cancelled["value"],
-            )
-        except InterruptedError:
-            self._set_status(f"批量导出已取消：{out_path}")
-            messagebox.showinfo(
-                "已取消",
-                "批量导出已取消。\n已写入的数据会保留在当前文件中。",
-            )
-            return
-        except Exception as exc:
-            messagebox.showerror("导出失败", f"批量导出失败：{exc}")
-            self._set_status("批量导出失败")
-            return
-        finally:
+            try:
+                export_batch_summary_csv(
+                    self.instances,
+                    out_path,
+                    progress_callback=report_progress,
+                    should_cancel=cancel_event.is_set,
+                )
+            except InterruptedError:
+                progress_queue.put(("cancelled", out_path))
+            except Exception as exc:
+                progress_queue.put(("error", str(exc)))
+            else:
+                progress_queue.put(("done", out_path))
+
+        worker_thread = threading.Thread(target=worker, daemon=True)
+        worker_thread.start()
+
+        def finish_dialog() -> None:
             if progress_win.winfo_exists():
+                progress_win.grab_release()
                 progress_win.destroy()
             self._toggle_action_buttons(enabled=True)
 
-        self._set_status(f"批量汇总导出成功：{out_path}")
-        messagebox.showinfo("导出成功", f"批量汇总文件已保存到：\n{out_path}")
+        def poll_progress() -> None:
+            try:
+                while True:
+                    event = progress_queue.get_nowait()
+                    kind = event[0]
+
+                    if kind == "progress":
+                        done = int(event[1])
+                        total_count = int(event[2])
+                        instance_name = str(event[3])
+                        self._set_status(
+                            f"批量求解导出中：{done}/{total_count} - {instance_name}"
+                        )
+                        progress_var.set(f"{done}/{total_count} - {instance_name}")
+                        progress_bar.configure(value=done)
+                    elif kind == "cancelled":
+                        finish_dialog()
+                        self._set_status(f"批量导出已取消：{event[1]}")
+                        messagebox.showinfo(
+                            "已取消",
+                            "批量导出已取消。\n已写入的数据会保留在当前文件中。",
+                        )
+                        return
+                    elif kind == "error":
+                        finish_dialog()
+                        messagebox.showerror("导出失败", f"批量导出失败：{event[1]}")
+                        self._set_status("批量导出失败")
+                        return
+                    elif kind == "done":
+                        finish_dialog()
+                        self._set_status(f"批量汇总导出成功：{event[1]}")
+                        messagebox.showinfo(
+                            "导出成功",
+                            f"批量汇总文件已保存到：\n{event[1]}",
+                        )
+                        return
+            except queue.Empty:
+                pass
+
+            self.after(100, poll_progress)
+
+        self.after(100, poll_progress)
 
 
 def run_app() -> None:
